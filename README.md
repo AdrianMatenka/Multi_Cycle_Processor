@@ -43,6 +43,11 @@ Unlike a single-cycle processor, this multi-cycle architecture reuses core hardw
 
 The project includes a comprehensive verification environment (`tb_top` inside `testbench.vhdl`) that automatically initializes the system, applies a reset sequence, and runs the application loaded into memory.
 
+### Expected Simulation Behavior
+When running the testbench, you can observe the Finite State Machine transitions tracking through states S0, S1, S2, etc., depending on the fetched opcode.
+
+![GTKWave Simulation Waveform](img/simulation_waveform.png)
+
 ### How to run:
 1. Open the project in your preferred HDL simulation tool (e.g., Vivado, ModelSim, or GHDL).
 2. Ensure the file path for `memfile.txt` inside `mem.vhd` correctly points to your local directory:
