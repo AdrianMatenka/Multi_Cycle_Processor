@@ -1,5 +1,11 @@
-21290004    -- [0x00] addi $t1, $t1, 4   | $t1 = 4
-2129FFFF    -- [0x04] loop: addi $t1, -1 | $t1 = $t1 - 1
-11200001    -- [0x08] beq $t1, $0, 1     | Jeśli $t1 == 0, skocz do 0x14 (pomiń J)
-08000001    -- [0x0C] j loop             | Skok do adresu 0x04 (Label 'loop')
-21080032    -- [0x10] addi $t0, $t0, 50  | $t0 = 50 (wykona się raz na końcu)
+20080005    -- [0x00] addi $t0, $0, 5  
+20090005    -- [0x04] addi $t1, $0, 5      
+200A000A    -- [0x08] addi $t2, $0, 10   
+15090003    -- [0x0C] bne $t0, $t1, 3     
+200B0001    -- [0x10] addi $t3, $0, 1     
+150A0003    -- [0x14] bne $t0, $t2, 3    
+200B0002    -- [0x18] addi $t3, $0, 2     
+00000000    -- [0x1C] nop
+00000000    -- [0x20] nop
+200C00FF    -- [0x24] addi $t4, $0, 255    
+00000000    -- [0x28] nop

@@ -1,3 +1,14 @@
+----------------------------------------------------------------------------------
+-- Author: Adrian Mateńka
+-- Date: 16.05.2026
+-- Project Name: MIPS Multi-Cycle Processor
+-- Module Name: datapath - struct
+-- Description: The main Datapath unit of the MIPS multi-cycle processor.
+--              It interconnects the registers, ALU, multiplexers, and 
+--              extension blocks to execute instructions by routing data 
+--              correctly based on control signals.
+----------------------------------------------------------------------------------
+
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -8,7 +19,7 @@ entity datapath is
         CLK             : in STD_LOGIC;
         Reset           : in STD_LOGIC;
 
-        -- Signals from Controll Unit
+        -- Signals from Control Unit
         PCWrite         : in STD_LOGIC;
         IRWrite         : in STD_LOGIC;
         RegWrite        : in STD_LOGIC;
@@ -16,7 +27,8 @@ entity datapath is
         MemtoReg        : in STD_LOGIC;
         IorD            : in STD_LOGIC;
         ALUSrcA         : in STD_LOGIC;
-        Branch          : in STD_LOGIC;
+        Branch          : in STD_LOGIC_VECTOR(1 downto 0);
+        LoadByte        : in STD_LOGIC;
         ALUSrcB         : in STD_LOGIC_VECTOR(1 downto 0);
         PCSrc           : in STD_LOGIC_VECTOR(1 downto 0);
         ALUControl      : in STD_LOGIC_VECTOR(2 downto 0);
@@ -26,7 +38,7 @@ entity datapath is
         ADR             : out STD_LOGIC_VECTOR(31 downto 0);
         WD              : out STD_LOGIC_VECTOR(31 downto 0);
 
-        -- Back to Controll Unit
+        -- Back to Control Unit
         Opcode          : out STD_LOGIC_VECTOR(5 downto 0);
         Funct           : out STD_LOGIC_VECTOR(5 downto 0);
         ZERO            : out STD_LOGIC
@@ -48,8 +60,8 @@ architecture struct of datapath is
         port(
             Input1          : in STD_LOGIC_VECTOR(WIDTH - 1 downto 0);
             Input2          : in STD_LOGIC_VECTOR(WIDTH - 1 downto 0);
-            MUXControl      : in STD_LOGIC;
-            MUXResult       : out STD_LOGIC_VECTOR(WIDTH - 1 downto 0)
+            MuxControl      : in STD_LOGIC;
+            MuxResult       : out STD_LOGIC_VECTOR(WIDTH - 1 downto 0)
         );
     end component;
 
@@ -77,8 +89,8 @@ architecture struct of datapath is
             Input2          : in STD_LOGIC_VECTOR(31 downto 0);
             Input3          : in STD_LOGIC_VECTOR(31 downto 0);
             Input4          : in STD_LOGIC_VECTOR(31 downto 0);
-            MUXControl      : in STD_LOGIC_VECTOR(1 downto 0);
-            MUXResult       : out STD_LOGIC_VECTOR(31 downto 0)
+            MuxControl      : in STD_LOGIC_VECTOR(1 downto 0);
+            MuxResult       : out STD_LOGIC_VECTOR(31 downto 0)
         );
     end component;
 
@@ -92,6 +104,15 @@ architecture struct of datapath is
         );
     end component;
 
+    component byte_select
+        port (
+            Input           : in STD_LOGIC_VECTOR(31 downto 0);
+            ByteSelect      : in STD_LOGIC_VECTOR(1 downto 0);
+            ByteSelected    : out STD_LOGIC_VECTOR(31 downto 0)
+        );
+    end component;
+
+    -- Internal signal declarations for datapath routing
     signal PCnext       : STD_LOGIC_VECTOR(31 downto 0);
     signal PCEn         : STD_LOGIC;
     signal PC           : STD_LOGIC_VECTOR(31 downto 0);
@@ -109,11 +130,19 @@ architecture struct of datapath is
     signal ALUResult    : STD_LOGIC_VECTOR(31 downto 0);
     signal PCJump       : STD_LOGIC_VECTOR(31 downto 0);
     signal AdrInternal  : STD_LOGIC_VECTOR(31 downto 0);
+    signal ByteSelected : STD_LOGIC_VECTOR(31 downto 0);
+    signal WriteData    : STD_LOGIC_VECTOR(31 downto 0);
+    signal TakeBranch   : STD_LOGIC;
 
 begin
 
-    PCEn <= (Branch and ZERO) or PCWrite;
+    -- Branch condition evaluation: Branch(0) handles BEQ (Zero), Branch(1) handles BNE (not Zero)
+    TakeBranch <= (Branch(0) and ZERO) or (Branch(1) and not ZERO);
 
+    -- Master PC Write Enable signal combining unconditional writes and valid branch conditions
+    PCEn <= PCWrite or TakeBranch;
+
+    -- Program Counter Register
     flopenr1: flopenr port map(
         CLK         => CLK,
         Reset       => Reset,
@@ -122,15 +151,17 @@ begin
         Q           => PC
     );
 
+    -- Memory Address Multiplexer: selects between Program Counter (Instruction Fetch) and ALUOut (Data Access)
     mux2_1: mux2 port map(
         Input1      => PC,
         Input2      => ALUOut,
-        MUXControl  => IorD,
-        MUXResult   => AdrInternal 
+        MuxControl  => IorD,
+        MuxResult   => AdrInternal 
     );
 
     ADR <= AdrInternal;
 
+    -- Instruction Register (IR) with write enable control
     flopenr2: flopenr port map(
         CLK         => CLK,
         Reset       => Reset,
@@ -139,11 +170,13 @@ begin
         Q           => Instr
     );
 
+    -- Slicing MIPS Instruction fields
     Opcode  <= Instr(31 downto 26);
     Funct   <= Instr(5 downto 0);
-    A1      <= Instr(25 downto 21);
-    A2      <= Instr(20 downto 16);
+    A1      <= Instr(25 downto 21); -- rs field
+    A2      <= Instr(20 downto 16); -- rt field
 
+    -- Register Destination MUX: chooses between rt field (I-type) and rd field (R-type)
     mux2_2: mux2
     generic map(
         WIDTH       => 5
@@ -151,10 +184,11 @@ begin
     port map(
         Input1      => Instr(20 downto 16),
         Input2      => Instr(15 downto 11),
-        MUXControl  => RegDst,
-        MUXResult   => A3 
+        MuxControl  => RegDst,
+        MuxResult   => A3 
     );
 
+    -- Data Register (DR) storing raw content read from memory
     flopenr3: flopenr port map(
         CLK         => CLK,
         Reset       => Reset,
@@ -163,13 +197,30 @@ begin
         Q           => Data
     );
 
-    mux2_3: mux2 port map(
-        Input1      => ALUOut,
-        Input2      => Data,
-        MUXControl  => MemtoReg,
-        MUXResult   => WD3 
+    -- Byte Selection Sub-module to extract a specific byte for partial load operations
+    byteselect1: byte_select port map(
+        Input           => Data,
+        ByteSelect      => Instr(1 downto 0),
+        ByteSelected    => ByteSelected
     );
 
+    -- MUX to select between full 32-bit Word Data and extracted Byte Data
+    mux2_5: mux2 port map(
+        Input1      => Data,
+        Input2      => ByteSelected,
+        MuxControl  => LoadByte,
+        MuxResult   => WriteData
+    ); 
+
+    -- Write Back Data MUX: selects between ALU execution output and loaded Memory Data
+    mux2_3: mux2 port map(
+        Input1      => ALUOut,
+        Input2      => WriteData,
+        MuxControl  => MemtoReg,
+        MuxResult   => WD3 
+    );
+
+    -- MIPS Central Register File
     register_1: register_file port map(
         CLK     => CLK,
         WE3     => RegWrite,
@@ -181,6 +232,7 @@ begin
         RD2     => RD2
     );
 
+    -- Pipeline/Multi-cycle intermediate Register A (Read Data 1 buffer)
     flopenr4: flopenr port map(
         CLK         => CLK,
         Reset       => Reset,
@@ -189,6 +241,7 @@ begin
         Q           => A
     );
 
+    -- Pipeline/Multi-cycle intermediate Register B (Read Data 2 buffer)
     flopenr5: flopenr port map(
         CLK         => CLK,
         Reset       => Reset,
@@ -199,28 +252,32 @@ begin
 
     WD <= B;
 
+    -- Sign Extension unit for 16-bit constants found in immediate instructions
     extension: sign_or_zero_extension port map(
         A           => Instr(15 downto 0),
         SIGNNEXT    => '1',
         Y           => SignImm
     );
 
+    -- ALU Source A MUX: routes either the PC value or Register Buffer A to the ALU
     mux2_4: mux2 port map(
         Input1      => PC,
         Input2      => A,
-        MUXControl  => ALUSrcA,
-        MUXResult   => SrcA 
+        MuxControl  => ALUSrcA,
+        MuxResult   => SrcA 
     );
 
+    -- ALU Source B MUX: selects between Register B, Constant 4 (PC increment), SignImm, or shifted SignImm
     mux4_1: mux4 port map(
         Input1      => B,
         Input2      => x"00000004",
         Input3      => SignImm,
         Input4      => (SignImm(29 downto 0) & "00"),
-        MUXControl  => ALUSrcB,
-        MUXResult   => SrcB
+        MuxControl  => ALUSrcB,
+        MuxResult   => SrcB
     );
 
+    -- Execution Core (ALU)
     alu_1: alu port map(
         SrcA => SrcA,
         SrcB => SrcB,
@@ -229,6 +286,7 @@ begin
         ALUResult => ALUResult
     );
 
+    -- ALU Output Register to buffer computation results across clock cycles
     flopenr6: flopenr port map(
         CLK         => CLK,
         Reset       => Reset,
@@ -237,15 +295,17 @@ begin
         Q           => ALUOut
     );
 
+    -- Calculation of target absolute jump address (combines PC upper bits and shifted instruction immediate)
     PCJump <= PC(31 downto 28) & Instr(25 downto 0) & "00";
 
+    -- PC Next Source MUX: Selects target source for the next PC state
     mux4_2: mux4 port map(
         Input1      => ALUResult,
         Input2      => ALUOut,
         Input3      => PCJump,
-        Input4      => x"00000000",
-        MUXControl  => PCSrc,
-        MUXResult   => PCnext
+        Input4      => A,
+        MuxControl  => PCSrc,
+        MuxResult   => PCnext
     );
 
 end struct;

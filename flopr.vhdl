@@ -1,3 +1,13 @@
+----------------------------------------------------------------------------------
+-- Author: Adrian Mateńka
+-- Date: 16.05.2026
+-- Project Name: MIPS Multi-Cycle Processor
+-- Module Name: flopenr - asynchronous
+-- Description: Parameterizable Flip-Flop with an active-high Synchronous/Asynchronous
+--              Enable and an Asynchronous Reset. Used extensively as pipeline/
+--              state registers within the architecture.
+----------------------------------------------------------------------------------
+
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -18,6 +28,7 @@ end;
 architecture asynchronous of flopenr is
 begin
 
+    -- Sequential process capturing asynchronous reset and rising edge clock event
     process(CLK, reset)
     begin
 

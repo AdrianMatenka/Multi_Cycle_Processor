@@ -1,3 +1,12 @@
+----------------------------------------------------------------------------------
+-- Author: Adrian Mateńka
+-- Date: 16.05.2026
+-- Project Name: MIPS Multi-Cycle Processor
+-- Module Name: mux4 - struct
+-- Description: Generic 4-to-1 multiplexer block. It routes one of the four
+--              WIDTH-bit input vectors to the output based on a 2-bit select signal.
+----------------------------------------------------------------------------------
+
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
@@ -21,6 +30,7 @@ architecture struct of mux4 is
     signal Result       : STD_LOGIC_VECTOR(WIDTH - 1 downto 0);
 begin
 
+    -- Combinational process for input selection based on the 2-bit control bus
     process (all)
     begin
 
@@ -34,6 +44,7 @@ begin
 
     end process;
 
+    -- Driving output continuously
     MUXResult <= Result;
 
 end struct;

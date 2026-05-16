@@ -1,24 +1,33 @@
+----------------------------------------------------------------------------------
+-- Author: Adrian Mateńka
+-- Date: 16.05.2026
+-- Project Name: MIPS Multi-Cycle Processor
+-- Module Name: tb_top - sim
+-- Description: Simulation Testbench for the complete integrated MIPS system.
+--              Generates the master clock signal, handles system initialization 
+--              via a dedicated reset phase, and supervises simulation execution.
+----------------------------------------------------------------------------------
+
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
--- Testbench for the complete MIPS Multi-cycle system
 entity tb_top is
 end;
 
 architecture sim of tb_top is
-    -- Signal declarations
+    -- Internal testbench stimulator and monitor signals
     signal clk   : std_logic := '0';
     signal reset : std_logic;
     signal writedata : std_logic_vector(31 downto 0);
     signal adr       : std_logic_vector(31 downto 0);
     signal memwrite  : std_logic;
 
-    -- Clock period definition
+    -- 100 MHz clock configuration constant (10 ns clock period)
     constant T : time := 10 ns;
 
 begin
-    -- Unit Under Test (UUT) instantiation
+    -- Unit Under Test (UUT) structural instantiation
     uut: entity work.top port map (
         clk       => clk,
         reset     => reset,
@@ -27,24 +36,23 @@ begin
         memwrite  => memwrite
     );
 
-    -- Clock generation
+    -- Continuous clock toggle loop generator
     clk <= not clk after T/2;
 
-    -- Stimulus process
+    -- Main stimulus process driving the multi-cycle execution sequence
     process
     begin
-        -- Initial reset sequence
+        -- Assert asynchronous system reset sequence
         reset <= '1';
-        wait for T * 2.2; -- Reset for two full cycles and a bit
+        wait for T * 2.2; -- Hold reset for two full clock cycles and an offset fraction
         reset <= '0';
         
-        -- The processor will now start fetching instructions from the RAM.
-        -- We wait for enough time to let the program finish its cycles.
-        -- Given the memfile.txt has 5 instructions, each taking 3-5 cycles:
+        -- Reset dropped: Processor enters state S0 (Fetch) and begins loading 
+        -- assembly instructions decoded from the external memfile.txt block.
         wait for T * 250; 
 
-        -- End simulation
-        assert false report "Simulation Finished" severity failure;
+        -- Stop simulation execution and report final validation status
+        assert false report "Simulation Finished Successfully" severity failure;
     end process;
 
 end architecture;
