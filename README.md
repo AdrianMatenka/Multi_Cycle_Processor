@@ -19,6 +19,9 @@ Unlike a single-cycle processor, this multi-cycle architecture reuses core hardw
 * **Shared ALU:** The central ALU performs PC increments, branch address calculations, and standard arithmetic/logical operations.
 * **Finite State Machine (FSM):** A 20-state main controller (`main_controller.vhd`) coordinates the control matrix and multiplexer selects synchronized to the system clock.
 
+![MIPS Multi-Cycle Schematic](img/schematic.png)
+
+
 ## Project Structure
 
 * `top.vhd` - System top-level wrapper integrating the MIPS core and the memory.
